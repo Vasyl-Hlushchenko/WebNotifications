@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 
-from connection_manager import manager
 from config import HTML_PATH
 from signal_handlers import redis_pubsub
 
