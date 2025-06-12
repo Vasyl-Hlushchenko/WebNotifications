@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>WebSocket Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+            align-items: center; /* центр по вертикалі */
+        }
+
+        input[type="text"] {
+            padding: 6px;
+            font-size: 1rem;
+            width: 250px;
+        }
+
+        button {
+            padding: 6px 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:nth-child(1) {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        button:nth-child(2) {
+            background-color: #f44336;
+            color: white;
+        }
+
+        button[type="submit"] {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 1rem;
+        }
+
+        li {
+            background: white;
+            padding: 10px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        #connectionsCount {
+            margin-left: 10px;
+            font-weight: bold;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 20px;
+            height: 24px;
+            background-color: #ddd;
+            border-radius: 4px;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Demo</h1>
+
+    <div class="controls">
+        <button onclick="connect()">🟢 Connect</button>
+        <button onclick="disconnect()">🔴 Disconnect</button>
+    </div>
+
+    <div class="controls" style="margin-top: 1rem;">
+        <button onclick="fetchConnections()">🔍 Check Active Connections</button>
+        <span id="connectionsCount">0</span>
+    </div>
+
+    <form onsubmit="sendMessage(event)" class="controls">
+        <input type="text" id="messageInput" placeholder="Type a message..." required />
+        <button type="submit">Send</button>
+    </form>
+
+    <ul id="messages"></ul>
+
+    <script>
+        let ws;
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                alert("Already connected");
+                return;
+            }
+
+            ws = new WebSocket("ws://localhost:8050/ws");
+
+            ws.onopen = () => logMessage("🟢 Connected");
+            ws.onmessage = (event) => logMessage("📨 " + event.data);
+            ws.onclose = () => logMessage("🔴 Disconnected");
+            ws.onerror = (error) => {
+                logMessage("❌ WebSocket error");
+                console.error(error);
+            };
+        }
+
+        function disconnect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close(1000, "Client disconnected");
+            } else {
+                logMessage("ℹ️ Not connected");
+            }
+        }
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById("messageInput");
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(input.value);
+                input.value = "";
+            } else {
+                logMessage("⚠️ Not connected");
+            }
+        }
+
+        function logMessage(text) {
+            const messages = document.getElementById("messages");
+            const message = document.createElement("li");
+            message.innerText = text;
+            messages.appendChild(message);
+        }
+
+        async function fetchConnections() {
+            try {
+                const response = await fetch("http://localhost:8050/connections");
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                document.getElementById("connectionsCount").innerText = data.active_connections;
+            } catch (error) {
+                console.error("Error fetching connections:", error);
+                alert("Failed to fetch active connections.");
+            }
+        }
+    </script>
+</body>
+</html>
