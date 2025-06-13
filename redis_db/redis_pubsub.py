@@ -1,32 +1,40 @@
 import logging
 import json
 from redis.asyncio import Redis
+from redis.asyncio.client import PubSub
+from asyncio import Event
 
 from config import REDIS_URL, REDIS_CONNECTIONS_KEY, REDIS_CHANNEL
+from connection_manager import ConnectionManager
 
 
 class RedisPubSub:
-    def __init__(self, manager, shutdown_event, redis_url=REDIS_URL, channel=REDIS_CHANNEL):
+    def __init__(
+        self,
+        manager: ConnectionManager,
+        shutdown_event: Event,
+        redis_url: str = REDIS_URL,
+        channel: str = REDIS_CHANNEL
+    ):
         self.manager = manager
         self.redis_url = redis_url
         self.channel = channel
-        self.redis = None
-        self.pub = None
-        self.sub = None
-        self.listen_task = None
+        self.redis: Redis | None = None
+        self.pub: Redis | None = None
+        self.sub: PubSub | None = None
         self.shutdown_event = shutdown_event
 
-    async def connect(self):
+    async def connect(self) -> None:
         self.redis = Redis.from_url(self.redis_url)
         self.pub = self.redis
         self.sub = self.redis.pubsub()
         await self.sub.subscribe(self.channel)
         logging.info(f"Connected to Redis channel '{self.channel}'")
 
-    async def publish(self, channel: str, message: str):
+    async def publish(self, channel: str, message: str) -> None:
         await self.redis.publish(channel, message.encode())
 
-    async def close(self):
+    async def close(self) -> None:
         if self.sub:
             await self.sub.unsubscribe(self.channel)
             await self.sub.close()
@@ -34,23 +42,23 @@ class RedisPubSub:
             await self.redis.close()
         logging.info("Redis connection closed.")
         
-    async def add_connection(self, client_id: str):
+    async def add_connection(self, client_id: str) -> None:
         await self.redis.sadd(REDIS_CONNECTIONS_KEY, client_id)
 
-    async def remove_connection(self, client_id: str):
+    async def remove_connection(self, client_id: str) -> None:
         await self.redis.srem(REDIS_CONNECTIONS_KEY, client_id)
         
-    async def clear_all_connections(self):
+    async def clear_all_connections(self) -> None:
         await self.redis.delete(REDIS_CONNECTIONS_KEY)
         logging.info(f"Cleared all WebSocket connection IDs from Redis set '{REDIS_CONNECTIONS_KEY}'")
 
     async def get_connection_count(self) -> int:
         return await self.redis.scard(REDIS_CONNECTIONS_KEY)
     
-    async def publish_shutdown_signal(self):
+    async def publish_shutdown_signal(self) -> None:
         await self.redis.publish("shutdown", "start")
 
-    async def listen_for_shutdown(self):
+    async def listen_for_shutdown(self) -> None:
         pubsub = self.redis.pubsub()
         await pubsub.subscribe("shutdown")
 
@@ -60,7 +68,7 @@ class RedisPubSub:
                 self.shutdown_event.set()
                 break
             
-    async def listen(self):
+    async def listen(self) -> None:
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(self.channel)
         logging.info(f"[broadcast] Subscribed to Redis channel '{self.channel}'")
