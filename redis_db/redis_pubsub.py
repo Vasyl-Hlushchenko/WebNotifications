@@ -4,7 +4,7 @@ from redis.asyncio import Redis
 from redis.asyncio.client import PubSub
 from asyncio import Event
 
-from config import REDIS_URL, REDIS_CONNECTIONS_KEY, REDIS_CHANNEL
+from config import REDIS_URL, REDIS_CONNECTIONS_KEY, REDIS_CHANNEL, MESSAGE_TYPE
 from connection_manager import ConnectionManager
 
 
@@ -54,16 +54,13 @@ class RedisPubSub:
 
     async def get_connection_count(self) -> int:
         return await self.redis.scard(REDIS_CONNECTIONS_KEY)
-    
-    async def publish_shutdown_signal(self) -> None:
-        await self.redis.publish("shutdown", "start")
 
     async def listen_for_shutdown(self) -> None:
         pubsub = self.redis.pubsub()
         await pubsub.subscribe("shutdown")
 
         async for message in pubsub.listen():
-            if message["type"] == "message" and message["data"] == b"start":
+            if message["type"] == MESSAGE_TYPE and message["data"] == b"start":
                 logging.info("Received shutdown signal via Redis.")
                 self.shutdown_event.set()
                 break
@@ -79,7 +76,7 @@ class RedisPubSub:
                 break
 
         async for message in pubsub.listen():
-            if message["type"] != "message":
+            if message["type"] != MESSAGE_TYPE:
                 continue
 
             data = message["data"]
@@ -88,7 +85,7 @@ class RedisPubSub:
 
             try:
                 parsed = json.loads(data)
-                message_text = parsed.get("message", "")
+                message_text = parsed.get(MESSAGE_TYPE, "")
                 sender_id = parsed.get("sender_id")
             except json.JSONDecodeError:
                 logging.warning("[broadcast] Non-JSON message received.")

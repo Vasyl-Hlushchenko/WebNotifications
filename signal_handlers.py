@@ -45,7 +45,7 @@ async def shutdown_watcher() -> None:
 async def publish_shutdown() -> None:
     locked: bool = await redis_pubsub.redis.setnx("shutdown_lock", "1")
     if locked:
-        await redis_pubsub.redis.expire("shutdown_lock", 60)
+        await redis_pubsub.redis.expire("shutdown_lock", MAX_WAIT_SECONDS)
         logging.info("Publishing shutdown signal via Redis...")
         await redis_pubsub.publish("shutdown", "start")
         shutdown_event.set()

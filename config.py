@@ -3,6 +3,7 @@ import os
 
 STATIC_DIR = "static"
 INDEX_FILE = "index.html"
+MESSAGE_TYPE = "message"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(BASE_DIR, STATIC_DIR, INDEX_FILE)
